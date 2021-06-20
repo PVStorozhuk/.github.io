@@ -1,0 +1,14 @@
+install.packages("tidyverse")
+install.packages("skimr")
+install.packages("here")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("lubridate")
+
+
+library(here)
+library(tidyverse)
+library(skimr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
