@@ -1,0 +1,4 @@
+daily_activity <- read.csv("dailyActivity_merged.csv")
+weight_log <- read.csv("weightLogInfo_merged.csv")
+sleep_log <- read.csv("sleepDay_merged.csv")
+heartrate <- read.csv("heartrate_seconds_merged.csv")
