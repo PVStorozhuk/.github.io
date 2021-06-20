@@ -1,0 +1,250 @@
+# Inspecting the data
+
+skim_without_charts(daily_activity)
+skim_without_charts(weight_log)
+skim_without_charts(sleep_log)
+
+skim_without_charts(heartrate)
+
+n_distinct(daily_activity$Id)
+n_distinct(weight_log$Id)
+n_distinct(sleep_log$Id)
+n_distinct(heartrate$Id)
+
+head(daily_activity)
+head(weight_log)
+head(sleep_log)
+head(heartrate)
+
+#Data cleaning
+
+#Removing a column with too many NA values (Fat), using BMI instead
+weight_log_new <- weight_log %>% select(-Fat)
+
+#Finding duplicates
+
+sum(duplicated(daily_activity))
+
+sum(duplicated(weight_log))
+
+sum(duplicated(sleep_log))
+
+sum(duplicated(heartrate))
+
+#Removing duplicates from sleep_log if needed
+
+sleep_dupl <- sleep_log[duplicated(sleep_log), ] %>%
+  view()
+
+
+  subset(sleep_log, Id == "4388161847") %>%
+    view()
+
+
+  sleep_new <- sleep_log[!duplicated(sleep_log), ]
+
+
+# Comparing TotalDistance and TrackerDistance in daily_activity
+
+daily_dist <- daily_activity %>%
+  select(Id, TotalDistance, TrackerDistance) %>%
+  mutate(diff = TotalDistance - TrackerDistance)
+
+unique_dist_vect <- unique(daily_dist$diff)
+
+length(unique_dist_vect)
+df1 <- subset(daily_dist, diff != 0)
+view(df1)
+
+daily_activity_ID1 <- subset(daily_activity, Id == "6962181067")
+daily_activity_ID2 <- subset(daily_activity, Id == "7007744171")
+
+view(daily_activity_ID1)
+view(daily_activity_ID2)
+
+
+# Changing datatype if needed
+
+str(daily_activity)
+str(weight_log)
+str(sleep_new)
+str(heartrate)
+
+# Changing Date from chr to Date
+
+daily_activity$ActivityDate <-  as.Date(daily_activity$ActivityDate,format='%m/%d/%Y')
+weight_log$Date <-  as.Date(weight_log$Date,format='%m/%d/%Y')
+sleep_new$SleepDay <-  as.Date(sleep_new$SleepDay,format='%m/%d/%Y')
+heartrate$Time <-  as.Date(heartrate$Time,format='%m/%d/%Y')
+
+str(sleep_new)
+
+# Removing datapoints from daily_activity where the number of steps seem to mean that the devise was charging.
+
+daily_activity %>%
+  arrange(TotalSteps) %>%
+  view()
+
+daily_activity %>%
+  select(TotalSteps) %>%
+  summary()
+
+daily_activity2 <- daily_activity %>%
+  mutate(TotalActiveMin = VeryActiveMinutes + FairlyActiveMinutes + LightlyActiveMinutes)
+
+daily_activity2 <- subset(daily_activity, TotalActiveMin > 0)
+
+daily_activity2 %>%
+  arrange(TotalSteps) %>%
+  view()
+# Looking for outliers
+boxplot(daily_activity2$TotalSteps)
+boxplot(sleep_new$TotalMinutesAsleep)
+boxplot(weight_log$WeightKg)
+
+weight_outl <- subset(weight_log, WeightKg > 120) %>%
+  view()
+weight_out2 <- subset(weight_log, Id == "1927972279") %>%
+  view()
+
+daily_activity2 %>%
+  subset(TotalSteps > 32000) %>%
+  view()
+
+daily_activity2 %>%
+  subset(Id == "1624580081") %>%
+  view()
+
+heartrate %>%
+  subset(Id == "1927972279") %>%
+  view()
+
+active_out <- subset(daily_activity, Id == "1927972279") %>%
+  view()
+# Counting the number of entries per ID
+
+weight_log %>%
+  count(Id) %>%
+  view()
+
+daily_activity2 %>%
+  count(Id) %>%
+  view()
+
+sleep_new %>%
+  count(Id) %>%
+  view()
+# Finding the time the tracker was being used
+
+minute_inten <- read.csv("minuteIntensitiesNarrow_merged.csv")
+head(minute_inten)
+nrow(minute_inten)
+summary(minute_inten$Intensity)
+n_distinct(minute_inten$Id)
+skim_without_charts(minute_inten)
+
+minute_0inten <- subset(minute_inten, Intensity == 0)
+nrow(minute_0inten)
+
+minute_1inten <- subset(minute_inten, Intensity != 0)
+nrow(minute_1inten)
+
+percentage_active <- minute_1inten %>%
+  group_by(Id) %>%
+  summarize(n0 = n()) %>%
+  ungroup()
+
+percentage_idle <- minute_0inten %>%
+  group_by(Id) %>%
+  summarize(n0 = n()) %>%
+  ungroup()
+
+active_dist <- merge(percentage_active, percentage_idle, by = "Id") %>%
+  mutate(act_per = n0.x/(n0.x +n0.y))
+colnames(active_dist)
+
+view(active_dist)
+# Analysis
+
+n_distinct(daily_activity2$Id)
+n_distinct(weight_log$Id)
+n_distinct(sleep_new$Id)
+
+
+
+distinct(weight_log, Id, .keep_all = TRUE) %>%
+  view()
+
+# Visualizing, how each type of activity affect calories burned
+
+# Counting, how many calories on average a person burns without activity
+  daily_no_activity <- subset(daily_activity2, TotalActiveMin == 0 & TotalSteps == 0 & Calories != 0)
+
+  view(daily_no_activity)
+
+  n_distinct(daily_no_activity$Id)
+
+
+hour_cal <- read.csv("hourlyCalories_merged.csv")
+head(hour_cal)
+
+n_distinct(hour_cal$Id)
+
+min_hour_cal <- hour_cal %>%
+  group_by(Id) %>%
+  summarize(min(Calories))
+
+  colnames(min_hour_cal)[2] <- "calories_per_h"
+
+  view(min_hour_cal)
+
+# Counting daily BMR calories
+
+daily_inact_cal <- min_hour_cal %>%
+  mutate(calories_per_d = calories_per_h * 24)
+
+# Adding the BMR calories to the activity table
+
+daily_activity3 <- merge(daily_activity2, daily_inact_cal, by = "Id") %>%
+  mutate(work_calories = Calories - calories_per_d) %>% subset(work_calories > 0)
+
+daily_count_gr <- subset(daily_activity3, )
+view(daily_activity3)
+summary(daily_activity3)
+boxplot(daily_activity3$work_calories)
+
+
+ggplot(data = daily_activity3, aes(x = ActivityDate, y = work_calories)) + geom_point()
+
+avg_calories_burned <- daily_activity3 %>%
+  subset(select = c(Id, work_calories, Calories)) %>%
+  group_by(Id) %>%
+  summarize(mean(work_calories/Calories))
+  colnames(avg_calories_burned)[2] <- "perc_active_calories"
+
+ggplot(data = avg_calories_burned, aes(x = Id, y = perc_active_calories)) + geom_point()
+
+n_distinct(daily_activity3$Id)
+n_distinct(weight_log$Id)
+n_distinct(sleep_new$Id)
+
+# Analysis weight
+weight_log$IsManualReport <-toupper(weight_log$IsManualReport)
+
+# Manual vs Auto
+
+report_name <- c("Manual", "Auto")
+report_T_F <- c(length(which(weight_log$IsManualReport =="TRUE")),length(which(weight_log$IsManualReport =="FALSE")))
+report_full <- data.frame(report_name, report_T_F)
+
+ggplot(report_full, aes(report_name, report_T_F)) + geom_col() + geom_text(aes(label = report_T_F),vjust=5, color="white") + labs(title="Weight Log Types",
+                                                                                                                                  x= "Weight Log Types", y="Number of Records")
+# Sleep analysis
+
+ggplot(sleep_new, aes(x=TotalMinutesAsleep)) +
+  geom_histogram(aes(y=..density..), binwidth=40,alpha=0.2) + geom_density(linetype = "dotted", colour="#8b132c") +
+  stat_function(fun = dnorm, args = list(mean=mean(sleep_log$TotalMinutesAsleep), sd = sd(sleep_log$TotalMinutesAsleep))) +
+  geom_vline(aes(xintercept=mean(TotalMinutesAsleep, na.rm=T)), color="red", linetype="dashed")
+# Average sleep time is 7 hours
+sleep_new %>%
+  summary()
